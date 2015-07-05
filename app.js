@@ -11,7 +11,8 @@ program
   .version('0.0.1')
   .usage('-f <addons.json>')
   .option('-f, --file <file>', 'Path to JSON file with addon details (required)')
-  .option('-u, --url <url>', 'Base URL of REST API to post to (optional)');
+  .option('-u, --url <url>', 'Base URL to use for posting results (optional)')
+  .option('-t --apiToken <token>', 'The API token required to post results (required if url is used)');
 
 program.on('--help', function () {
   var addonJsonExample = '[\n' +
@@ -23,7 +24,7 @@ program.on('--help', function () {
     ']';
 
   console.log('  Example:');
-  console.log('    $ addon-download-count-fetcher -f addon.json -u https://example.com/');
+  console.log('    $ addon-download-count-fetcher -f addon.json -u https://example.com -t mytoken');
   console.log('');
   console.log('    addon.json contents:');
   console.log(addonJsonExample);
@@ -35,20 +36,25 @@ program.parse(process.argv);
 if (!program.file) {
   console.error('Error:', 'The file argument was not provided.');
   program.help();
-  process.exit(1)
+  process.exit(1);
+}
+
+if (program.url && !program.apiToken) {
+  console.error('Error:', 'The --apiToken was not specified.');
+  program.help();
+  process.exit(1);
 }
 
 var jsonFile = program.file;
-var outputFile = program.outputFile;
 var url = program.url;
+var apiToken = program.apiToken;
+var apiRequest = request.defaults({
+  baseUrl: url,
+  headers: {"api-token": apiToken, "Content-Type": "application/json"}
+});
 var jsonFromFile;
 var results = {};
 var sourceUrls = {};
-
-var foo = {
-  'addon1': {},
-  'addon2': {}
-};
 
 fs.readFile(jsonFile, parseJsonFile);
 
@@ -91,12 +97,60 @@ function reportTotalIfReady(addonName, count) {
 }
 
 function outputToRestApi(addonName) {
-  // todo get list of addons
-  // todo if addon does not exist, add it with sourceUrls
+  apiRequest.get({uri: '/addons', json: true}, function (error, response, body) {
+    if (error || response.statusCode != 200) {
+      console.error('Error attempting to fetch list of addons: statusCode=' + response.statusCode);
+      console.error(body);
+      return;
+    }
+
+    if (body.indexOf(addonName) === -1) {
+      createAddonUsingRestApi(addonName, updateAddonCountsUsingRestApi);
+    } else {
+      console.log('Addon ' + addonName + ' found, skipping creation...');
+      updateAddonCountsUsingRestApi(addonName);
+    }
+  });
+}
+
+function createAddonUsingRestApi(addonName, callback) {
+  console.log('Addon ' + addonName + ' not found, we need to create it!');
   var curseForgeUrl = sourceUrls[addonName].curseForgeUrl;
   var wowInterfaceUrl = sourceUrls[addonName].wowInterfaceUrl;
-  // todo post new download count for addon
+  var urls = {curseForgeUrl: curseForgeUrl, wowInterfaceUrl: wowInterfaceUrl};
+
+  apiRequest.post({
+    uri: '/addons/' + addonName,
+    json: true,
+    body: urls
+  }, function (error, response, body) {
+    if (error || response.statusCode != 200) {
+      console.error('Error attempting to create an addon: statusCode=' + response.statusCode);
+      console.error(body);
+      return;
+    }
+
+    console.log('Successfully created addon:', addonName);
+    callback(addonName);
+  });
+}
+
+function updateAddonCountsUsingRestApi(addonName) {
+  console.log('Updating the download counts for ' + addonName)
   var count = results[addonName].count;
+  apiRequest.post({
+    uri: '/addons/' + addonName + '/downloads',
+    json: true,
+    body: {count: count}
+  }, function (error, response, body) {
+    if (error || response.statusCode != 200) {
+      console.error('Error attempting to update download counts for ' + addonName + ': statusCode=' + response.statusCode);
+      console.error(body);
+      return;
+    }
+
+    console.log('Successfully updated download count to ' + count + ' for addon:', addonName);
+  });
 }
 
 function getDownloadCountFromScrapedCurseForgeHtml(addonName, html) {
