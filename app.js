@@ -157,7 +157,7 @@ function getDownloadCountFromScrapedCurseForgeHtml(addonName, html) {
   var $ = cheerio.load(html);
   var downloadsElement = $('dt:contains("Downloads")');
   var downloadCountElement = downloadsElement.next();
-  return Number(downloadCountElement.text());
+  return parseInt(downloadCountElement.text().replace(',', ''));
 }
 
 function getDownloadCountFromScrapedWowInterfaceHtml(addonName, html) {
@@ -166,7 +166,7 @@ function getDownloadCountFromScrapedWowInterfaceHtml(addonName, html) {
   var titleRow = titleElement.parent().parent().parent();
   var downloadCountRow = titleRow.children().last();
   var downloadCountElement = downloadCountRow.children().first();
-  return Number(downloadCountElement.text());
+  return parseInt(downloadCountElement.text().replace(',', ''));
 }
 
 function scrapeDownloadCountFromUrl(url, addonName, callback) {
