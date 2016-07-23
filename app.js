@@ -50,7 +50,8 @@ var url = program.url;
 var apiToken = program.apiToken;
 var apiRequest = request.defaults({
   baseUrl: url,
-  headers: {"api-token": apiToken, "Content-Type": "application/json"}
+  headers: {"api-token": apiToken, "Content-Type": "application/json"},
+  timeout: 30000
 });
 var jsonFromFile;
 var results = {};
@@ -170,7 +171,7 @@ function getDownloadCountFromScrapedWowInterfaceHtml(addonName, html) {
 }
 
 function scrapeDownloadCountFromUrl(url, addonName, callback) {
-  request(url, function (error, response, html) {
+  request(url, {timeout: 30000}, function (error, response, html) {
     if (!error && response.statusCode == 200) {
       var count = callback(addonName, html);
       reportTotalIfReady(addonName, count);
