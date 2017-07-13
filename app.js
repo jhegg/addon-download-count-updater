@@ -156,7 +156,7 @@ function updateAddonCountsUsingRestApi(addonName) {
 
 function getDownloadCountFromScrapedCurseForgeHtml(addonName, html) {
   var $ = cheerio.load(html);
-  var downloadsElement = $('.project-details').find('.info-data')[2].children[0].data;
+  var downloadsElement = $('.project-details').find('.info-data')[3].children[0].data;
   return parseInt(downloadsElement.replace(',', ''));
 }
 
